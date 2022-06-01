@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="">
+
+<head>
+  <meta charset="utf-8">
+  <meta http-equiv="X-UA-Compatible" content="IE=edge">
+  <meta name="viewport" content="width=device-width,initial-scale=1.0">
+  <link rel="icon" href="<%= BASE_URL %>favicon.ico">
+  <title>transform 定位块</title>
+  <style>
+    html,
+    body,
+    #wraper {
+      margin: 0;
+      padding: 0;
+      width: 100%;
+      height: 100%;
+      overflow: hidden;
+    }
+
+    #inner {
+      background: #eee;
+      width: 4000px;
+      height: 3000px;
+      transform-origin: center center 0;
+    }
+
+    .rect {
+      position: absolute;
+      top: 0;
+      left: 0;
+      width: 10px;
+      height: 10px;
+      background: #f00;
+    }
+  </style>
+</head>
+
+<body>
+
+  <div id="wraper">
+    <div id="inner"></div>
+  </div>
+
+  <script>
+    var $wraper = document.getElementById('wraper')
+    var $inner = document.getElementById('inner')
+    var InnerWidth = $inner.clientWidth
+    var InnerHeight = $inner.clientHeight
+    var MAX_SCALE = 5 //缩放的最大比例
+    var MIN_SCALE = 0.1 //缩放的最小比例
+    var SCALE_STEP = 0.1 //缩放的步长
+
+    var scale = 1 //$inner的transfrom的scale值
+    var dx = 0 //$inner的transfrom的translateX值
+    var dy = 0 //$inner的transfrom的translateY值
+    var center = { x: 0, y: 0 } //用于辅助$inner的transfrom计算的中心点
+    var pos = { x: 0, y: 0 } //移动鼠标过程中鼠标相对于$wraper的位置
+
+    /**
+     * 鼠标滚动事件，缩放$inner
+     * */
+    function wheel(e) {
+      e.preventDefault()
+      if (e.deltaY < 0 && scale >= MAX_SCALE) return // 放大
+      if (e.deltaY > 0 && scale <= MIN_SCALE) return // 缩小
+
+      var _scale = scale * (e.deltaY < 0 ? (1 + SCALE_STEP) : (1 - SCALE_STEP))
+      _scale = Math.min(Math.max(MIN_SCALE, _scale), MAX_SCALE)
+      var ratio = _scale / scale
+
+      var _centre = zoom(center, getPosition(e), ratio)
+      transformInnerEl(_centre.x - (InnerWidth / 2), _centre.y - (InnerHeight / 2), _scale)
+    }
+
+    /**
+     * 鼠标按下事件，平移$inner
+     * */
+    function mousedown(e) {
+      $wraper.addEventListener('mousemove', mousemove)
+      $wraper.addEventListener('mouseup', mouseup)
+      pos = getPosition(e)
+    }
+
+    /**
+     * 鼠标移动事件，平移$inner
+     * */
+    function mousemove(e) {
+      var curPos = getPosition(e)
+      transformInnerEl(dx + curPos.x - pos.x, dy + curPos.y - pos.y, scale)
+      pos = curPos
+    }
+
+    /**
+     * 鼠标抬起事件，平移$inner
+     * */
+    function mouseup() {
+      $wraper.removeEventListener('mousemove', mousemove)
+      $wraper.removeEventListener('mouseup', mouseup)
+    }
+
+    /**
+     * 根据窗口大小重新计算$inner刚好铺完$wapper的transform值
+     * */
+    function resize() {
+      var rect = $wraper.getBoundingClientRect(),
+        width = rect.width,
+        height = rect.height,
+        scale = 1;
+      if ((width / height) > (InnerWidth / InnerHeight)) {
+        //按宽屏处理
+        scale = height / InnerHeight;
+      } else {
+        scale = width / InnerWidth;
+      }
+      transformInnerEl((width - InnerWidth) / 2, (height - InnerHeight) / 2, scale)
+    }
+
+    /**
+     * 按照指定中心，与比例进行缩放，返回新的点
+     * @param {Object} p - 被缩放的点
+     * @param {Object} center  - 缩放中心
+     * @param {Object} ratio  - 缩放比例
+     * @return {Object}
+     */
+    function zoom(p, center, ratio) {
+      return {
+        x: (p.x - center.x) * ratio + center.x,
+        y: (p.y - center.y) * ratio + center.y
+      }
+    }
+
+    /**
+     * 获取鼠标相对于$wraper的坐标
+     * */
+    function getPosition(e) {
+      var rect = $wraper.getBoundingClientRect()
+      return { x: e.pageX - rect.left, y: e.pageY - rect.top }
+    }
+
+    /**
+     * 更新$inner的transform值 $inner.style.tranform = tranform(_dx, _dy) scale(_scale)
+     * @param {number} _dx 
+     * @param {number} _dy 
+     * @param {number} _scale 
+     * */
+    function transformInnerEl(_dx, _dy, _scale) {
+
+      dx = _dx;
+      dy = _dy;
+      scale = _scale;
+
+      center = {
+        x: InnerWidth / 2 + _dx,
+        y: InnerHeight / 2 + _dy
+      }
+
+      $inner.style.transform = 'translate(' + _dx + 'px,' + _dy + 'px) scale(' + _scale + ')'
+
+    }
+
+    /**
+     * 随机获取一个颜色值
+     * @return {string} 颜色值，如： #ff0000
+     * */
+    function getRandomColor() {
+      var random = Math.floor(Math.random() * 0xffffff)
+        .toString(16)
+        //.padEnd(6, '0')
+      return '#' + random
+    }
+
+
+    $wraper.addEventListener('wheel', wheel)
+    $wraper.addEventListener('mousedown', mousedown)
+    window.addEventListener('resize', resize)
+
+    /**
+    * 随机创建一批定位点
+    * */
+    for (let i = 0; i < 100; i++) {
+      const $div = document.createElement('div')
+      $div.className = 'rect'
+      $div.style.left = parseInt(Math.random() * InnerWidth) + 'px'
+      $div.style.top = parseInt(Math.random() * InnerHeight) + 'px'
+      $div.style.background = getRandomColor()
+      $inner.appendChild($div)
+    }
+
+    resize()
+
+  </script>
+</body>
+
+</html>
